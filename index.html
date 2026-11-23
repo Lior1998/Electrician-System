@@ -141,35 +141,49 @@ function loadLocal(){
     }
   }catch(e){}
 }
+let USER_PIN = sessionStorage.getItem('mektzoan_pin') || '';
 
 async function save(){
   try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
-  if(!GAS_URL){
-    setSync('שמור מקומית (פרטי) ✓','ok');
-    return;
-  }
+  if(!GAS_URL){setSync('שמור מקומית (פרטי) ✓','ok');return;}
   setSync('מסנכרן לענן הפרטי...','');
   try{
     const res=await fetch(GAS_URL,{
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action:'saveAll',state:S})
+      body:JSON.stringify({action:'saveAll',pin:USER_PIN,state:S})
     });
-    if(!res.ok)throw new Error('HTTP');
+    const out=await res.json();
+    if(out.error==='unauthorized')throw new Error('auth');
     setSync('סונכרן ל-Google Sheets ✓','ok');
   }catch(e){
-    setSync('שגיאת סנכרון (שמור מקומית)','bad');
+    setSync(e.message==='auth'?'קוד גישה שגוי!':'שגיאת סנכרון (שמור מקומית)','bad');
   }
 }
 
 async function boot(){
+  if(GAS_URL && !USER_PIN){
+    $('app').innerHTML=`
+      <div class="panel" style="max-width:360px;margin:60px auto;text-align:center">
+        <h2>🔒 כניסה למערכת מקצוען</h2>
+        <p class="note">הזן קוד גישה פרטי</p>
+        <input id="pinInput" type="password" inputmode="numeric" placeholder="קוד גישה" style="text-align:center;font-size:20px;letter-spacing:4px;margin:12px 0">
+        <button class="b" style="width:100%" onclick="USER_PIN=val('pinInput');sessionStorage.setItem('mektzoan_pin',USER_PIN);boot()">כניסה</button>
+      </div>`;
+    return;
+  }
   $('app').innerHTML='<p class="note" style="margin-top:24px">טוען נתונים פרטיים...</p>';
   loadLocal();
   if(GAS_URL){
     setSync('מתחבר ל-Sheets...','');
     try{
-      const res=await fetch(GAS_URL+'?action=loadAll');
+      const res=await fetch(GAS_URL+'?action=loadAll&pin='+encodeURIComponent(USER_PIN));
       const data=await res.json();
+      if(data.error==='unauthorized'){
+        USER_PIN='';sessionStorage.removeItem('mektzoan_pin');
+        alert('קוד גישה שגוי, נסה שוב.');
+        boot();return;
+      }
       if(data&&data.prof){
         S.prof=Object.assign(S.prof,data.prof);
         COLS.forEach(c=>{if(Array.isArray(data[c]))S[c]=data[c]});
@@ -182,9 +196,7 @@ async function boot(){
   }else{
     setSync('פרטי · אחסון מקומי בדפדפן','ok');
   }
-  ready=true;
-  setWho();
-  render();
+  ready=true;setWho();render();
 }
 
 function demoData(){
