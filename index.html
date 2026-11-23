@@ -1,9 +1,11 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
-<title>מקצוען</title>
-<meta name="claude:viewport-fit-sides" content="cover">
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>מקצוען - ניהול עסק פרטי</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap">
 <style>
-/* Layout: sticky top bar, teal tile home like the driving-school system, module screens as stacked panels */
 :root{
   --bg:#05282b; --bg2:#0a3c40; --panel:#0d4448; --line:#1b6469;
   --fg:#e8fffb; --muted:#9cc9c4; --tile-a:#6df5e1; --tile-b:#17b2a1; --tile-fg:#032b2a;
@@ -12,9 +14,10 @@
   color-scheme:dark;
 }
 *{box-sizing:border-box}
-html{background:var(--bg)}
+html{background:var(--bg);scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;line-height:1.45;
-  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 40px}
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:calc(40px + env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .wrap{max-width:1040px;margin:0 auto}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg2);z-index:10}
 .top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg2);margin-inline:calc(-1*max(16px,env(safe-area-inset-left,0px)));padding:12px max(16px,env(safe-area-inset-left,0px));border-bottom:1px solid var(--line)}
@@ -73,11 +76,13 @@ td input{padding:6px 8px}
 .bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;height:100%;font-size:12px;color:var(--muted)}
 .bar i{display:block;width:100%;max-width:46px;border-radius:6px 6px 0 0;background:var(--accent);min-height:2px}
 .bar i.n{background:var(--warn)}
-.ai{border-style:dashed}
 .msg{white-space:pre-wrap}
+[hidden]{display:none!important}
 @media(max-width:620px){.tiles{grid-template-columns:1fr}h1{font-size:22px}.tile{font-size:17px}}
 @media(prefers-reduced-motion:no-preference){.tile{transition:filter .15s}}
 </style>
+</head>
+<body>
 <div class="top"><div class="wrap">
   <button class="iconbtn" id="homeBtn" aria-label="תפריט ראשי" data-act="go" data-v="home"></button>
   <span class="brand">מקצוען</span>
@@ -85,7 +90,9 @@ td input{padding:6px 8px}
 </div></div>
 <main class="wrap" id="app"></main>
 <script>
-const DAY=864e5;
+/* הגדרת כתובת Google Apps Script הפרטית שלך (תתווסף בשלב 2) */
+const GAS_URL = '';
+
 const pad=n=>String(n).padStart(2,'0');
 const dstr=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
 const today=()=>dstr(new Date());
@@ -112,74 +119,77 @@ notes:'M6 3h12v18H6zM9 8h6M9 12h6M9 16h3',
 portfolio:'M3 7h18v13H3zM8 7V4h8v3M3 13h18',
 portal:'M12 3a9 9 0 100 18 9 9 0 000-18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18'};
 const ico=n=>'<svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" stroke="currentColor"><path d="'+ICON[n]+'"/></svg>';
+$('homeBtn').innerHTML=ico('home');
 
-/* ---------- state ---------- */
-const KEY='mektzoan-v1';
+/* ---------- Private State & Storage ---------- */
+const KEY='mektzoan-private-v1';
 const COLS=['customers','jobs','quotes','expenses','stock','prices','tasks','notes','works','requests'];
-const emptyState=()=>{const s={prof:{name:'',trade:'בעל מקצוע',labor:180,markup:15,vat:18,set:false}};COLS.forEach(c=>s[c]=[]);return s};
-let S=emptyState(),DBH=null,shadow={},wq=Promise.resolve(),pend=0,ready=false,ordN=0,loadTimer=null;
+const emptyState=()=>{const s={prof:{name:'ליאור קמחי',trade:'חשמלאי מוסמך והנדימן',labor:180,markup:15,vat:18,set:false}};COLS.forEach(c=>s[c]=[]);return s};
+let S=emptyState(),ready=false;
 const hasDemo=()=>COLS.some(c=>S[c].some(r=>r.demo));
-const clone=o=>JSON.parse(JSON.stringify(o));
+
 function setSync(t,cls){const e=$('sync');if(e){e.textContent=t;e.className='sync '+(cls||'')}}
 function setWho(){const e=$('who');if(e)e.textContent=(S.prof.name?S.prof.name+' · ':'')+S.prof.trade}
-const isEditing=()=>{const a=document.activeElement;return !!a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&a.type!=='checkbox'};
+
 function loadLocal(){
-  try{const r=localStorage.getItem(KEY);if(r){const o=JSON.parse(r);S.prof=Object.assign(S.prof,o.prof||{});COLS.forEach(c=>{if(Array.isArray(o[c]))S[c]=o[c]})}}catch(e){}
+  try{
+    const r=localStorage.getItem(KEY);
+    if(r){
+      const o=JSON.parse(r);
+      S.prof=Object.assign(S.prof,o.prof||{});
+      COLS.forEach(c=>{if(Array.isArray(o[c]))S[c]=o[c]});
+    }
+  }catch(e){}
 }
-/* save() compares the in-memory state with what the database holds and writes only what changed */
-function save(){
-  if(!DBH){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}return}
-  const ops=[];
-  COLS.forEach(c=>{
-    const sh=shadow[c]||(shadow[c]={}),seen={};
-    S[c].forEach(r=>{
-      if(!r.id)r.id=uid();
-      if(!r._o)r._o=Date.now()*1000+(ordN++%1000);
-      seen[r.id]=1;const j=JSON.stringify(r);
-      if(sh[r.id]!==j){sh[r.id]=j;ops.push(()=>DBH.collection(c).doc(r.id).set(JSON.parse(j)))}
+
+async function save(){
+  try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
+  if(!GAS_URL){
+    setSync('שמור מקומית (פרטי) ✓','ok');
+    return;
+  }
+  setSync('מסנכרן לענן הפרטי...','');
+  try{
+    const res=await fetch(GAS_URL,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'saveAll',state:S})
     });
-    Object.keys(sh).forEach(id=>{if(!seen[id]){delete sh[id];ops.push(()=>DBH.collection(c).doc(id).delete())}});
-  });
-  const pj=JSON.stringify(S.prof);
-  if(shadow.prof!==pj){shadow.prof=pj;ops.push(()=>DBH.doc('profile/main').set(JSON.parse(pj)))}
-  if(!ops.length)return;
-  setSync('שומר...','');
-  ops.forEach(op=>{pend++;wq=wq.then(op).then(()=>{if(--pend===0)setSync('נשמר ✓','ok')},e=>{pend--;setSync('השמירה נכשלה'+(e&&e.code==='quota_exceeded'?': המסד מלא':''),'bad')})});
+    if(!res.ok)throw new Error('HTTP');
+    setSync('סונכרן ל-Google Sheets ✓','ok');
+  }catch(e){
+    setSync('שגיאת סנכרון (שמור מקומית)','bad');
+  }
 }
-function startApp(){
-  if(ready)return;ready=true;clearTimeout(loadTimer);setWho();render();
-}
-function subscribe(){
-  const got={},tot=COLS.length+1;let n=0;
-  const first=k=>{if(!got[k]){got[k]=1;if(++n===tot)startApp()}};
-  const onErr=k=>e=>{setSync(e&&e.code==='revoked'?'אין גישה':'אין חיבור למסד','bad');first(k)};
-  COLS.forEach(c=>DBH.collection(c).onSnapshot(snap=>{
-    if(snap.metadata.hasPendingWrites&&ready)return;
-    const rows=snap.docs.map(d=>clone(d.data())).sort((a,b)=>(a._o||0)-(b._o||0));
-    const nsh={};rows.forEach(r=>nsh[r.id]=JSON.stringify(r));
-    const old=shadow[c]||{};
-    const same=Object.keys(nsh).length===Object.keys(old).length&&Object.keys(nsh).every(id=>old[id]===nsh[id]);
-    S[c]=rows;shadow[c]=nsh;
-    if(!ready){first(c);return}
-    if(!same&&!isEditing())refresh();
-  },onErr(c)));
-  DBH.doc('profile/main').onSnapshot(snap=>{
-    if(snap.metadata.hasPendingWrites&&ready)return;
-    if(snap.exists){const p=clone(snap.data());const same=JSON.stringify(p)===shadow.prof;S.prof=Object.assign(S.prof,p);shadow.prof=JSON.stringify(p);setWho();
-      if(ready&&!same&&!isEditing())refresh()}
-    first('prof');
-  },onErr('prof'));
-  loadTimer=setTimeout(()=>{if(!ready){setSync('החיבור איטי, מוצג מה שנטען','bad');startApp()}},10000);
-}
+
 async function boot(){
-  $('app').innerHTML='<p class="note" style="margin-top:24px">טוען את הנתונים שלך...</p>';
-  try{DBH=await claude.use('db')}catch(e){DBH=null}
-  if(!DBH){loadLocal();setSync('אין מסד נתונים: נשמר בדפדפן בלבד','bad');startApp();initAI();return}
-  setSync('מחובר','ok');subscribe();initAI();
+  $('app').innerHTML='<p class="note" style="margin-top:24px">טוען נתונים פרטיים...</p>';
+  loadLocal();
+  if(GAS_URL){
+    setSync('מתחבר ל-Sheets...','');
+    try{
+      const res=await fetch(GAS_URL+'?action=loadAll');
+      const data=await res.json();
+      if(data&&data.prof){
+        S.prof=Object.assign(S.prof,data.prof);
+        COLS.forEach(c=>{if(Array.isArray(data[c]))S[c]=data[c]});
+        localStorage.setItem(KEY,JSON.stringify(S));
+      }
+      setSync('מחובר לענן הפרטי ✓','ok');
+    }catch(e){
+      setSync('מצב לא מקוון (נתונים מקומיים)','bad');
+    }
+  }else{
+    setSync('פרטי · אחסון מקומי בדפדפן','ok');
+  }
+  ready=true;
+  setWho();
+  render();
 }
+
 function demoData(){
   const t=today(), d=n=>addDays(t,n);
-  const c=[{id:'c1',name:'רונית לוי',phone:'050-1234567',city:'הרצליה'},{id:'c2',name:'משה אברהם',phone:'052-7654321',city:'רעננה'},{id:'c3',name:'מסעדת הים',phone:'09-9556677',city:'הרצליה פיתוח'}];
+  const c=[{id:'c1',name:'רונית לוי',phone:'050-1234567',city:'מזכרת בתיה'},{id:'c2',name:'משה אברהם',phone:'052-7654321',city:'רחובות'},{id:'c3',name:'מסעדת הים',phone:'09-9556677',city:'נס ציונה'}];
   return {
    customers:c,
    jobs:[
@@ -214,27 +224,13 @@ function demoData(){
     {id:'w2',cid:'c3',title:'תאורת לד בחזית',date:d(-40),warranty:36,photos:[],desc:'חיבור 14 גופי תאורה, שעון שבת וחיישן אור.'}],
    requests:[]};
 }
+
 const cust=id=>S.customers.find(c=>c.id===id)||{name:'לקוח לא ידוע',phone:'',city:''};
 const jobName=id=>{const j=S.jobs.find(x=>x.id===id);return j?j.title+' · '+cust(j.cid).name:'ללא שיוך'};
 const monthKey=s=>s.slice(0,7);
 const custOptions=sel=>S.customers.map(c=>'<option value="'+c.id+'"'+(c.id===sel?' selected':'')+'>'+esc(c.name)+'</option>').join('');
 const jobOptions=sel=>'<option value="">ללא שיוך</option>'+S.jobs.map(j=>'<option value="'+j.id+'"'+(j.id===sel?' selected':'')+'>'+esc(j.title+' · '+cust(j.cid).name)+'</option>').join('');
 
-/* ---------- AI helpers (viewer's own Claude, via sample capability) ---------- */
-let SAMPLE=null, SAMPLE_IMG=false;
-async function initAI(){
-  try{SAMPLE=await claude.use('sample')}catch(e){SAMPLE=null}
-  if(SAMPLE){try{const l=await SAMPLE.limits();SAMPLE_IMG=!!l.images}catch(e){}}
-  if(view==='quotes'||view==='invoices'||view==='portal')render();
-}
-function aiErr(e){
-  const c=e&&e.code;
-  if(c==='not_granted'||c==='sampling_disabled')return 'ה-AI לא אושר לדף הזה. אפשר להמשיך ידנית.';
-  if(c==='rate_limited')return 'יותר מדי בקשות. נסה שוב בעוד דקה.';
-  if(c==='image_rejected')return 'התמונה לא נתמכת. נסה JPG או PNG.';
-  if(c==='cancelled')return '';
-  return 'לא הצלחתי לפענח. נסה שוב או הזן ידנית.';
-}
 function resizeImg(file,max,q){q=q||.6;
   return new Promise((res,rej)=>{
     const u=URL.createObjectURL(file),im=new Image();
@@ -245,6 +241,15 @@ function resizeImg(file,max,q){q=q||.6;
   });
 }
 
+function downloadFile(filename, content, mime){
+  const blob=new Blob([content],{type:mime});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
 /* ---------- router ---------- */
 const VIEWS={};
 let view='home';
@@ -253,10 +258,8 @@ function render(){
   const h=(location.hash||'#home').slice(1);
   view=VIEWS[h]?h:'home';
   $('app').innerHTML=VIEWS[view]();
-  if(AFTER[view])AFTER[view]();
   window.scrollTo(0,0);
 }
-const AFTER={};
 const ACT={};
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b)return;
@@ -266,8 +269,7 @@ ACT.go=d=>go(d.v);
 window.addEventListener('hashchange',render);
 function head(title,sub){return '<h1>'+title+'</h1>'+(sub?'<p class="sub">'+sub+'</p>':'')}
 function emptyMsg(t){return '<p class="note">'+t+'</p>'}
-</script>
-<script>
+
 const refresh=()=>{const y=window.scrollY;render();window.scrollTo(0,y)};
 const ACTC={};
 document.addEventListener('change',e=>{const b=e.target.closest('[data-chg]');if(b&&ACTC[b.dataset.chg])ACTC[b.dataset.chg](b.dataset,b)});
@@ -286,10 +288,10 @@ const homeBody=()=>{
   const td=S.jobs.filter(j=>j.date===today()&&j.status==='planned').length;
   const low=lowStock().length, tasks=S.tasks.filter(t=>!t.done).length, req=S.requests.filter(r=>!r.handled).length;
   const T=[['calendar','יומן וקריאות שירות',td?td+' להיום':'',td],['schedule','סידור עבודה','תכנון שבועי','' ],
-   ['quotes','הצעות מחיר','סוכן תמחור בשטח',''],['invoices','חשבוניות ורואה חשבון','סורק הוצאות חכם',''],
+   ['quotes','הצעות מחיר','בניית הצעה ותמחור',''],['invoices','חשבוניות ורואה חשבון','מעקב הוצאות וייצוא',''],
    ['stock','ניהול מלאי','רכב ומחסן',low],['customers','ניהול לקוחות','היסטוריה וחובות',''],
    ['stats','סטטיסטיקה חודשית','רווח נקי ותזרים',''],['notes','תזכורות ופנקס','משימות והערות',tasks],
-   ['portfolio','תיק עבודות','תמונות ואחריות',''],['portal','פורטל לקוח','מה שהלקוח רואה',req]];
+   ['portfolio','תיק עבודות','תמונות ואחריות',''],['portal','פורטל לקוח','תצוגת לקוח',req]];
   return '<h1>שלום'+(S.prof.name?' '+esc(S.prof.name):'')+'</h1><p class="sub">'+esc(S.prof.trade)+' · '+heDay(today())+(hasDemo()?'<span class="demo">נתוני דוגמה</span>':'')+'</p>'+
   '<div class="kpis"><div class="kpi '+(m.net>=0?'ok':'bad')+'"><b>'+money(m.net)+'</b><span>רווח נקי החודש</span></div>'+
   '<div class="kpi '+(debt?'warn':'')+'"><b>'+money(debt)+'</b><span>חובות פתוחים של לקוחות</span></div>'+
@@ -299,14 +301,24 @@ const homeBody=()=>{
   (req?'<div class="panel"><h2>בקשות חדשות מלקוחות</h2><div class="list">'+S.requests.filter(r=>!r.handled).map(r=>'<div class="item"><div class="grow"><div class="t">'+esc(cust(r.cid).name)+'</div><div class="m">'+esc(r.text)+'</div></div><span class="pill '+(r.urgency==='דחוף'?'bad':r.urgency==='בינוני'?'warn':'mu')+'">'+esc(r.urgency)+'</span><button class="b sm" data-act="reqDone" data-id="'+r.id+'">טופל</button></div>').join('')+'</div></div>':'');
 };
 
-const profPanel=first=>'<div class="panel"'+(first?' style="border-color:var(--accent)"':'')+'><h2>'+(first?'בוא נתחיל: פרטי העסק':'פרטי העסק')+'</h2><div class="row"><label>שם<input id="pf1" value="'+esc(S.prof.name)+'"></label><label>מקצוע<input id="pf2" value="'+esc(S.prof.trade)+'"></label><label>תעריף שעה (₪)<input id="pf3" type="number" value="'+S.prof.labor+'"></label><label>תוספת על חומרים (%)<input id="pf4" type="number" value="'+S.prof.markup+'"></label><label>מע״מ (%)<input id="pf5" type="number" value="'+S.prof.vat+'"></label><button class="b" data-act="saveProf">שמור</button></div></div>';
+const profPanel=first=>'<div class="panel"'+(first?' style="border-color:var(--accent)"':'')+'><h2>'+(first?'בוא נתחיל: פרטי העסק':'פרטי העסק וגיבוי פרטי')+'</h2><div class="row"><label>שם<input id="pf1" value="'+esc(S.prof.name)+'"></label><label>מקצוע<input id="pf2" value="'+esc(S.prof.trade)+'"></label><label>תעריף שעה (₪)<input id="pf3" type="number" value="'+S.prof.labor+'"></label><label>תוספת על חומרים (%)<input id="pf4" type="number" value="'+S.prof.markup+'"></label><label>מע״מ (%)<input id="pf5" type="number" value="'+S.prof.vat+'"></label><button class="b" data-act="saveProf">שמור</button></div>'+
+'<div class="row" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><button class="b ghost sm" data-act="backupJson">הורד גיבוי מלא (JSON)</button><label style="flex:0 1 auto;cursor:pointer"><span class="b ghost sm" style="display:inline-block">שחזר מקובץ גיבוי</span><input type="file" accept=".json" data-chg="restoreJson" hidden></label></div></div>';
+
 const demoPanel=()=>hasDemo()?'<div class="panel"><h2>נתוני דוגמה</h2><p class="note">הדוגמאות מסומנות ומעורבבות עם הנתונים שלך. מחק אותן כשאתה מוכן להתחיל באמת.</p><button class="b danger" data-act="clearDemo">מחק את נתוני הדוגמה</button></div>':
   (COLS.every(c=>!S[c].length)?'<div class="panel"><h2>רוצה לראות איך זה נראה?</h2><p class="note">אפשר לטעון נתוני דוגמה, ולמחוק אותם בלחיצה אחת.</p><button class="b ghost" data-act="loadDemo">טען נתוני דוגמה</button></div>':'');
+
 VIEWS.home=()=>(S.prof.set?'':profPanel(true))+homeBody()+(S.prof.set?profPanel(false):'')+demoPanel();
 ACT.saveProf=()=>{S.prof=Object.assign({},S.prof,{name:val('pf1'),trade:val('pf2')||'בעל מקצוע',labor:num('pf3'),markup:num('pf4'),vat:num('pf5'),set:true});save();setWho();refresh()};
 ACT.loadDemo=()=>{const d=demoData();COLS.forEach(c=>(d[c]||[]).forEach(r=>{r.demo=true;S[c].push(r)}));save();refresh()};
 ACT.clearDemo=()=>{COLS.forEach(c=>{S[c]=S[c].filter(r=>!r.demo)});save();refresh()};
 ACT.reqDone=d=>{const r=S.requests.find(x=>x.id===d.id);if(r)r.handled=true;save();refresh()};
+ACT.backupJson=()=>downloadFile('mektzoan-backup-'+today()+'.json',JSON.stringify(S,null,2),'application/json');
+ACTC.restoreJson=(d,b)=>{
+  const f=b.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{try{const o=JSON.parse(r.result);if(o&&o.prof){S=o;save();setWho();refresh()}}catch(e){alert('קובץ גיבוי לא תקין')}};
+  r.readAsText(f);
+};
 
 /* ---------- calendar ---------- */
 function jobItem(j){
@@ -393,13 +405,11 @@ VIEWS.customers=()=>{
 ACT.addCust=()=>{if(!val('cn'))return;S.customers.push({id:uid(),name:val('cn'),phone:val('cp'),city:val('cy')});save();refresh()};
 ACT.openCust=d=>{selCust=d.id;render()};
 ACT.custBack=()=>{selCust=null;render()};
-</script>
-<script>
-const copyText=async t=>{try{await navigator.clipboard.writeText(t);return true}catch(e){return false}};
-let ctl=null;
 
-/* ---------- quotes (Field Quote AI) ---------- */
-let Q={cid:'',title:'',items:[],hours:0,notes:'',photos:[]};
+const copyText=async t=>{try{await navigator.clipboard.writeText(t);return true}catch(e){return false}};
+
+/* ---------- quotes ---------- */
+let Q={cid:'',title:'',items:[],hours:0,notes:''};
 const qCalc=()=>{
   const mat=Q.items.reduce((a,i)=>a+i.qty*i.price,0)*(1+S.prof.markup/100);
   const lab=Q.hours*S.prof.labor,sub=mat+lab,vat=sub*S.prof.vat/100;
@@ -411,25 +421,21 @@ function quoteText(){
 }
 VIEWS.quotes=()=>{
   if(!Q.cid)Q.cid=S.customers[0]?S.customers[0].id:'';
-  const c=qCalc(),ai=!!SAMPLE;
-  return head('הצעות מחיר','תאר את העבודה או צלם את הנקודה בשטח, וקבל הצעה מסודרת')+
-  '<div class="panel ai"><h2>סוכן תמחור בשטח</h2><div class="row"><label>לקוח<select id="qc" data-chg="qcust">'+custOptions(Q.cid)+'</select></label></div>'+
-  '<label style="margin-top:10px">תיאור העבודה (הקלד או הכתב מהמקלדת הקולית)<textarea id="qd" placeholder="למשל: להחליף לוח ישן בדירת 4 חדרים, 3 קווים חדשים למזגנים, כ-25 מטר כבל">'+esc(Q.desc||'')+'</textarea></label>'+
-  (SAMPLE_IMG?'<label style="margin-top:10px">תמונה של הנקודה או הלוח (לא חובה)<input id="qp" type="file" accept="image/*" multiple></label>':'')+
-  '<div class="row" style="margin-top:10px"><button class="b" id="qgo" data-act="qAI"'+(ai?'':' disabled')+'>הפק הצעת מחיר</button><button class="b ghost" data-act="qManual">התחל הצעה ידנית</button><button class="b ghost" id="qstop" data-act="aiStop" hidden>עצור</button></div>'+
-  '<p class="note" id="qs">'+(ai?'ה-AI שולף מחירים מהמחירון שלך ומחשב שעות עבודה. תמיד כדאי לעבור על המספרים לפני שליחה.':'ה-AI לא זמין בתצוגה הזו. אפשר לבנות הצעה ידנית.')+'</p></div>'+
+  const c=qCalc();
+  return head('הצעות מחיר','בניית הצעה מפורטת מתוך מחירון הספקים שלך')+
+  '<div class="panel"><h2>יצירת הצעת מחיר</h2><div class="row"><label>לקוח<select id="qc" data-chg="qcust">'+custOptions(Q.cid)+'</select></label><button class="b" data-act="qManual">התחל טיוטת הצעה</button></div>'+
+  (S.prices.length?'<div class="row" style="margin-top:10px"><label>הוסף מהמחירון<select id="qpick">'+S.prices.map((p,i)=>'<option value="'+i+'">'+esc(p.name)+' (₪'+p.price+' / '+esc(p.unit)+')</option>').join('')+'</select></label><button class="b ghost" data-act="qAddFromPrice">הוסף שורה מהמחירון</button></div>':'')+'</div>'+
   (Q.items.length||Q.title?quoteDraft(c):'')+
   '<div class="panel"><h2>הצעות שנשמרו</h2><div class="list">'+(S.quotes.slice().reverse().map(q=>'<div class="item"><div class="grow"><div class="t">'+esc(q.title)+'</div><div class="m">'+esc(cust(q.cid).name)+' · '+heDay(q.date)+'</div></div><b>'+money(q.total)+'</b>'+(q.job?'<span class="pill ok">הפכה לעבודה</span>':'<button class="b sm" data-act="q2job" data-id="'+q.id+'">אושרה: הוסף ליומן</button>')+'</div>').join('')||emptyMsg('עדיין לא נשמרו הצעות.'))+'</div></div>'+
-  '<div class="panel"><h2>מחירון ספקים</h2><p class="note">המחירים שהסוכן משתמש בהם. עדכן אותם כשהספק מעדכן.</p><div class="row"><label style="flex:2 1 200px">פריט<input id="pn"></label><label>יחידה<input id="pu" value="יח׳"></label><label>מחיר (₪)<input id="pc" type="number" step="0.1"></label><button class="b" data-act="addPrice">הוסף</button></div>'+
+  '<div class="panel"><h2>מחירון ספקים</h2><p class="note">המחירים השמורים שלך לשימוש מהיר בהצעות מחיר.</p><div class="row"><label style="flex:2 1 200px">פריט<input id="pn"></label><label>יחידה<input id="pu" value="יח׳"></label><label>מחיר (₪)<input id="pc" type="number" step="0.1"></label><button class="b" data-act="addPrice">הוסף</button></div>'+
   '<div class="tablew" style="margin-top:10px"><table><tbody>'+S.prices.map((p,i)=>'<tr><td>'+esc(p.name)+'</td><td>'+esc(p.unit)+'</td><td>₪'+p.price+'</td><td><button class="b sm danger" data-act="delPrice" data-i="'+i+'">מחק</button></td></tr>').join('')+'</tbody></table></div></div>';
 };
 function quoteDraft(c){
   return '<div class="panel"><h2>טיוטת הצעה</h2><label>כותרת<input id="qt" value="'+esc(Q.title)+'" data-chg="qmeta"></label>'+
   '<div class="tablew" style="margin-top:10px"><table><thead><tr><th>פריט</th><th>כמות</th><th>יחידה</th><th>מחיר ספק</th><th></th></tr></thead><tbody>'+
-  Q.items.map((i,k)=>'<tr><td>'+esc(i.desc)+(i.src==='הערכה'?' <span class="pill warn">הערכה</span>':'')+'</td><td><input type="number" step="0.5" value="'+i.qty+'" data-chg="qi" data-k="'+k+'" data-f="qty" style="width:80px"></td><td>'+esc(i.unit)+'</td><td><input type="number" step="0.1" value="'+i.price+'" data-chg="qi" data-k="'+k+'" data-f="price" style="width:90px"></td><td><button class="b sm danger" data-act="qdel" data-k="'+k+'">הסר</button></td></tr>').join('')+
+  Q.items.map((i,k)=>'<tr><td><input value="'+esc(i.desc)+'" data-chg="qi" data-k="'+k+'" data-f="desc"></td><td><input type="number" step="0.5" value="'+i.qty+'" data-chg="qi" data-k="'+k+'" data-f="qty" style="width:80px"></td><td><input value="'+esc(i.unit)+'" data-chg="qi" data-k="'+k+'" data-f="unit" style="width:70px"></td><td><input type="number" step="0.1" value="'+i.price+'" data-chg="qi" data-k="'+k+'" data-f="price" style="width:90px"></td><td><button class="b sm danger" data-act="qdel" data-k="'+k+'">הסר</button></td></tr>').join('')+
   '</tbody></table></div>'+
-  '<div class="row" style="margin-top:10px"><label>שעות עבודה<input id="qh" type="number" step="0.5" value="'+Q.hours+'" data-chg="qmeta"></label><label>תוספת על חומרים (%)<input id="qm" type="number" value="'+S.prof.markup+'" data-chg="qmark"></label><label>תעריף שעה (₪)<input id="ql" type="number" value="'+S.prof.labor+'" data-chg="qlab"></label><button class="b ghost" data-act="qadd">הוסף שורה</button></div>'+
-  (Q.notes?'<p class="note msg" style="margin-top:10px">הערת הסוכן: '+esc(Q.notes)+'</p>':'')+
+  '<div class="row" style="margin-top:10px"><label>שעות עבודה<input id="qh" type="number" step="0.5" value="'+Q.hours+'" data-chg="qmeta"></label><label>תוספת על חומרים (%)<input id="qm" type="number" value="'+S.prof.markup+'" data-chg="qmark"></label><label>תעריף שעה (₪)<input id="ql" type="number" value="'+S.prof.labor+'" data-chg="qlab"></label><button class="b ghost" data-act="qadd">הוסף שורה ריקה</button></div>'+
   '<div class="tablew"><table style="margin-top:10px"><tbody><tr><td>חומרים כולל תוספת</td><td>'+money(c.mat)+'</td></tr><tr><td>עבודה</td><td>'+money(c.lab)+'</td></tr><tr><td>סה״כ לפני מע״מ</td><td>'+money(c.sub)+'</td></tr><tr><td>מע״מ '+S.prof.vat+'%</td><td>'+money(c.vat)+'</td></tr><tr class="tot"><td>סה״כ לתשלום</td><td>'+money(c.total)+'</td></tr></tbody></table></div>'+
   '<div class="row" style="margin-top:10px"><button class="b" data-act="qsave">שמור הצעה</button><button class="b ghost" data-act="qcopy">העתק הודעה ללקוח</button><span class="note" id="qcm"></span></div></div>';
 }
@@ -437,92 +443,51 @@ ACTC.qcust=(d,b)=>{Q.cid=b.value};
 ACTC.qmeta=()=>{Q.title=val('qt');Q.hours=num('qh');refresh()};
 ACTC.qmark=()=>{S.prof.markup=num('qm');save();refresh()};
 ACTC.qlab=()=>{S.prof.labor=num('ql');save();refresh()};
-ACTC.qi=(d,b)=>{Q.items[+d.k][d.f]=Number(b.value)||0;refresh()};
+ACTC.qi=(d,b)=>{Q.items[+d.k][d.f]=(d.f==='qty'||d.f==='price')?(Number(b.value)||0):b.value;refresh()};
 ACT.qdel=d=>{Q.items.splice(+d.k,1);refresh()};
-ACT.qadd=()=>{Q.items.push({desc:'פריט חדש',qty:1,unit:'יח׳',price:0,src:'הערכה'});refresh()};
-ACT.qManual=()=>{Q.desc=val('qd');Q.title=Q.title||'הצעה חדשה';if(!Q.items.length)Q.items.push({desc:'פריט חדש',qty:1,unit:'יח׳',price:0,src:'הערכה'});refresh()};
-ACT.aiStop=()=>{if(ctl)ctl.abort()};
-ACT.qAI=async()=>{
-  Q.desc=val('qd');if(!Q.desc||!SAMPLE)return;
-  const st=$('qs'),go=$('qgo'),stop=$('qstop');
-  let imgs=[];const f=$('qp')&&$('qp').files;
-  try{if(f&&f.length)imgs=await Promise.all([...f].slice(0,3).map(x=>resizeImg(x,1400).then(r=>r.blob)))}catch(e){st.textContent=aiErr({code:'image_rejected'});return}
-  ctl=new AbortController();go.disabled=true;stop.hidden=false;st.textContent='מפענח ומחשב...';
-  const prompt='אתה סוכן תמחור לבעל מקצוע ('+S.prof.trade+') בישראל. קרא את תיאור העבודה'+(imgs.length?' ואת התמונות':'')+', פרק אותה לרכיבים ולשעות עבודה והחזר הצעה.\n'+
-   'מחירון הספקים (השתמש בו כשהפריט קיים, ורשום src="מחירון"; פריט שאינו במחירון הערך במחיר שוק סביר בשקלים ורשום src="הערכה"):\n'+JSON.stringify(S.prices)+'\n'+
-   'תיאור העבודה:\n'+Q.desc+'\n\nהחזר JSON בלבד בצורה: {"title":"כותרת קצרה","items":[{"desc":"שם הפריט","qty":מספר,"unit":"יח׳ או מטר","price":מחיר ספק ליחידה,"src":"מחירון או הערכה"}],"hours":מספר שעות עבודה כולל,"notes":"הנחות או דברים לבדוק בשטח, משפט או שניים"}';
-  try{
-    const r=await SAMPLE.json(prompt,{signal:ctl.signal,images:imgs.length?imgs:undefined,modelTier:'default'});
-    Q.title=String(r.title||'הצעת מחיר');Q.hours=Number(r.hours)||0;Q.notes=String(r.notes||'');
-    Q.items=(Array.isArray(r.items)?r.items:[]).map(i=>({desc:String(i.desc||''),qty:Number(i.qty)||1,unit:String(i.unit||'יח׳'),price:Number(i.price)||0,src:i.src==='מחירון'?'מחירון':'הערכה'}));
-    refresh();
-  }catch(e){st.textContent=aiErr(e);go.disabled=false;stop.hidden=true}
-};
-ACT.qsave=()=>{const c=qCalc();S.quotes.push({id:uid(),cid:Q.cid,title:Q.title||'הצעה',date:today(),total:c.total,sub:c.sub});save();Q={cid:Q.cid,title:'',items:[],hours:0,notes:'',desc:''};refresh()};
+ACT.qadd=()=>{Q.items.push({desc:'פריט חדש',qty:1,unit:'יח׳',price:0});refresh()};
+ACT.qManual=()=>{Q.title=Q.title||'הצעה חדשה';if(!Q.items.length)Q.items.push({desc:'פריט חדש',qty:1,unit:'יח׳',price:0});refresh()};
+ACT.qAddFromPrice=()=>{const p=S.prices[num('qpick')];if(!p)return;Q.title=Q.title||'הצעת מחיר';Q.items.push({desc:p.name,qty:1,unit:p.unit,price:p.price});refresh()};
+ACT.qsave=()=>{const c=qCalc();S.quotes.push({id:uid(),cid:Q.cid,title:Q.title||'הצעה',date:today(),total:c.total,sub:c.sub});save();Q={cid:Q.cid,title:'',items:[],hours:0,notes:''};refresh()};
 ACT.qcopy=async()=>{const ok=await copyText(quoteText());$('qcm').textContent=ok?'ההודעה הועתקה':'לא הצלחתי להעתיק. סמן והעתק ידנית.'};
 ACT.q2job=d=>{const q=S.quotes.find(x=>x.id===d.id);if(!q)return;const j={id:uid(),cid:q.cid,title:q.title,date:addDays(today(),2),time:'09:00',status:'planned',amount:Math.round(q.sub),paid:false,kind:'עבודה'};S.jobs.push(j);q.job=j.id;save();refresh()};
 ACT.addPrice=()=>{if(!val('pn'))return;S.prices.push({name:val('pn'),unit:val('pu')||'יח׳',price:num('pc')});save();refresh()};
 ACT.delPrice=d=>{S.prices.splice(+d.i,1);save();refresh()};
 
-/* ---------- invoices (Smart Expense & Inventory OCR) ---------- */
+/* ---------- invoices ---------- */
 let INV=null;
 const CATS=['חומרים','ציוד וכלים','קבלן משנה','דלק ורכב','אחר'];
 function newInv(o){return Object.assign({supplier:'',date:today(),total:0,cat:'חומרים',jobId:'',items:[]},o||{})}
 VIEWS.invoices=()=>{
-  const ai=!!SAMPLE&&SAMPLE_IMG,yr=today().slice(0,4);
+  const yr=today().slice(0,4);
   const ex=S.expenses.slice().sort((a,b)=>b.date.localeCompare(a.date));
   const sum=ex.filter(x=>x.date.startsWith(yr)).reduce((a,x)=>a+x.total,0);
-  return head('חשבוניות ורואה חשבון דיגיטלי','צלם חשבונית ספק, והמערכת מעדכנת מלאי, פרויקט ורווח')+
-  '<div class="panel ai"><h2>סורק חשבוניות</h2><div class="row">'+(SAMPLE_IMG?'<label style="flex:2 1 220px">צילום חשבונית<input id="ip" type="file" accept="image/*"></label>':'')+
-  '<button class="b" id="igo" data-act="iAI"'+(ai?'':' disabled')+'>פענח חשבונית</button><button class="b ghost" data-act="iManual">הוסף הוצאה ידנית</button><button class="b ghost" id="istop" data-act="aiStop" hidden>עצור</button></div>'+
-  '<p class="note" id="is">'+(ai?'הסורק קורא ספק, תאריך, סכום ופריטים. אתה מאשר לפני שהכול נשמר.':'סריקת תמונה לא זמינה בתצוגה הזו. אפשר להוסיף הוצאה ידנית.')+'</p></div>'+
+  return head('חשבוניות ורואה חשבון','תיעוד הוצאות, שיוך לפרויקטים וייצוא CSV')+
+  '<div class="panel"><h2>תיעוד הוצאה חדשה</h2><div class="row"><button class="b" data-act="iManual">הוסף הוצאה</button></div></div>'+
   (INV?invDraft():'')+
   '<div class="panel"><div class="row"><h2 style="flex:1;margin:0">הוצאות '+yr+': '+money(sum)+'</h2><button class="b" data-act="exportCsv">ייצוא לרואה חשבון (CSV)</button></div><p class="note" id="ie"></p>'+
   '<div class="list" style="margin-top:8px">'+ex.map(x=>'<div class="item"><div class="grow"><div class="t">'+esc(x.supplier)+'</div><div class="m">'+heDay(x.date)+' · '+esc(x.cat)+' · '+esc(jobName(x.jobId))+'</div></div><b>'+money(x.total)+'</b><button class="b sm danger" data-act="delExp" data-id="'+x.id+'">מחק</button></div>').join('')+'</div></div>';
 };
 function invDraft(){
-  return '<div class="panel"><h2>אישור הוצאה</h2><div class="row"><label>ספק<input id="is1" value="'+esc(INV.supplier)+'"></label><label>תאריך<input id="is2" type="date" value="'+esc(INV.date)+'"></label><label>סכום כולל (₪)<input id="is3" type="number" step="0.01" value="'+INV.total+'"></label>'+
+  return '<div class="panel"><h2>אישור הוצאה</h2><div class="row"><label>ספק<input id="is1" value="'+esc(INV.supplier)+'" placeholder="שם הספק"></label><label>תאריך<input id="is2" type="date" value="'+esc(INV.date)+'"></label><label>סכום כולל (₪)<input id="is3" type="number" step="0.01" value="'+INV.total+'"></label>'+
   '<label>סוג<select id="is4">'+CATS.map(c=>'<option'+(c===INV.cat?' selected':'')+'>'+c+'</option>').join('')+'</select></label><label>שייך לפרויקט<select id="is5">'+jobOptions(INV.jobId)+'</select></label></div>'+
-  (INV.items.length?'<div class="tablew" style="margin-top:10px"><table><thead><tr><th>הוסף למלאי</th><th>פריט</th><th>כמות</th><th>יחידה</th><th>מיקום</th></tr></thead><tbody>'+INV.items.map((i,k)=>'<tr><td><input type="checkbox" id="ik'+k+'" checked></td><td>'+esc(i.name)+'</td><td><input id="iq'+k+'" type="number" step="0.5" value="'+i.qty+'" style="width:80px"></td><td>'+esc(i.unit)+'</td><td><select id="il'+k+'"><option>רכב</option><option>מחסן</option></select></td></tr>').join('')+'</tbody></table></div>':'')+
   '<div class="row" style="margin-top:10px"><button class="b" data-act="iSave">אשר ושמור</button><button class="b ghost" data-act="iCancel">בטל</button></div></div>';
 }
 ACT.iManual=()=>{INV=newInv();refresh()};
 ACT.iCancel=()=>{INV=null;refresh()};
-ACT.iAI=async()=>{
-  const f=$('ip')&&$('ip').files[0];const st=$('is');
-  if(!f||!SAMPLE){st.textContent='בחר צילום חשבונית קודם.';return}
-  let img;try{img=(await resizeImg(f,1600)).blob}catch(e){st.textContent=aiErr({code:'image_rejected'});return}
-  ctl=new AbortController();$('igo').disabled=true;$('istop').hidden=false;st.textContent='קורא את החשבונית...';
-  const prompt='זו תמונה של חשבונית או קבלה מספק לבעל מקצוע ('+S.prof.trade+') בישראל. חלץ את הנתונים והחזר JSON בלבד: {"supplier":"שם הספק","date":"YYYY-MM-DD או ריק","total":סכום כולל מע״מ כמספר,"cat":"אחד מ: '+CATS.join(', ')+'","items":[{"name":"שם הפריט","qty":כמות,"unit":"יח׳ או מטר"}]}. אם שדה לא קריא החזר ערך ריק או 0.';
-  try{
-    const r=await SAMPLE.json(prompt,{signal:ctl.signal,images:[img],modelTier:'default'});
-    INV=newInv({supplier:String(r.supplier||''),date:/^\d{4}-\d{2}-\d{2}$/.test(r.date||'')?r.date:today(),total:Number(r.total)||0,cat:CATS.includes(r.cat)?r.cat:'חומרים',
-      items:(Array.isArray(r.items)?r.items:[]).map(i=>({name:String(i.name||''),qty:Number(i.qty)||1,unit:String(i.unit||'יח׳')})).filter(i=>i.name)});
-    refresh();
-  }catch(e){st.textContent=aiErr(e);$('igo').disabled=false;$('istop').hidden=true}
-};
 ACT.iSave=()=>{
   const x={id:uid(),date:val('is2')||today(),supplier:val('is1')||'ספק',total:num('is3'),jobId:val('is5'),cat:val('is4')};
-  S.expenses.push(x);
-  INV.items.forEach((it,k)=>{
-    if(!$('ik'+k)||!$('ik'+k).checked)return;
-    const q=num('iq'+k),loc=val('il'+k),nm=it.name.trim();
-    const m=S.stock.find(s=>s.loc===loc&&(s.name===nm||s.name.includes(nm)||nm.includes(s.name)));
-    if(m)m.qty+=q;else S.stock.push({id:uid(),name:nm,unit:it.unit,loc,qty:q,min:0});
-  });
-  INV=null;save();refresh();
+  S.expenses.push(x);INV=null;save();refresh();
 };
 ACT.delExp=d=>{S.expenses=S.expenses.filter(x=>x.id!==d.id);save();refresh()};
-ACT.exportCsv=async()=>{
+ACT.exportCsv=()=>{
   const yr=today().slice(0,4),q=s=>'"'+String(s).replace(/"/g,'""')+'"';
   const rows=[['תאריך','ספק','סוג','פרויקט','סכום כולל מע״מ','מע״מ משוער']].concat(S.expenses.filter(x=>x.date.startsWith(yr)).sort((a,b)=>a.date.localeCompare(b.date)).map(x=>[x.date,x.supplier,x.cat,jobName(x.jobId),x.total.toFixed(2),(x.total*S.prof.vat/(100+S.prof.vat)).toFixed(2)]));
-  const csv='﻿'+rows.map(r=>r.map(q).join(',')).join('\r\n');
-  const m=$('ie');
-  try{const dl=await claude.use('downloads');if(!dl)throw 0;await dl.save({filename:'הוצאות-'+yr+'.csv',data:csv});m.textContent='הקובץ מוכן לרואה החשבון.'}
-  catch(e){m.textContent=(e&&e.code==='declined')?'':'השמירה לא זמינה בתצוגה הזו.'}
+  const csv='\uFEFF'+rows.map(r=>r.map(q).join(',')).join('\r\n');
+  downloadFile('הוצאות-'+yr+'.csv',csv,'text/csv;charset=utf-8');
+  $('ie').textContent='קובץ ה-CSV ירד למחשב שלך.';
 };
-</script>
-<script>
+
 /* ---------- stock ---------- */
 const stockRow=s=>'<div class="item"><div class="grow"><div class="t">'+esc(s.name)+'</div><div class="m">מינימום '+s.min+' '+esc(s.unit)+'</div></div>'+(s.qty<s.min?'<span class="pill bad">חסר</span>':'')+
   '<button class="b sm ghost" data-act="stq" data-id="'+s.id+'" data-n="-1" aria-label="הפחת">−</button><b style="min-width:54px;text-align:center">'+s.qty+' '+esc(s.unit)+'</b><button class="b sm ghost" data-act="stq" data-id="'+s.id+'" data-n="1" aria-label="הוסף">+</button>'+
@@ -576,34 +541,16 @@ let pCust=null;
 VIEWS.portal=()=>{
   if(!pCust||!S.customers.find(c=>c.id===pCust))pCust=S.customers[0]?S.customers[0].id:null;
   const c=cust(pCust),ws=S.works.filter(w=>w.cid===pCust),js=S.jobs.filter(j=>j.cid===pCust&&j.status==='done');
-  return head('פורטל לקוח','כך נראה העמוד האישי שהלקוח מקבל')+
-  '<div class="panel"><div class="row"><label>הצג כלקוח<select id="pc1" data-chg="pcust">'+custOptions(pCust)+'</select></label></div><p class="note" style="margin-top:8px">זו תצוגה מקדימה בתוך המערכת שלך. קישור אישי שהלקוח פותח מהטלפון שלו דורש שירות אירוח נפרד, והוא עדיין לא מחובר כאן.</p></div>'+
+  return head('פורטל לקוח','תצוגה מקדימה של תיק הלקוח')+
+  '<div class="panel"><div class="row"><label>הצג כלקוח<select id="pc1" data-chg="pcust">'+custOptions(pCust)+'</select></label></div></div>'+
   '<div class="panel" style="border-color:var(--accent)"><h2>שלום '+esc(c.name)+', כאן התיק שלך אצל '+esc(S.prof.name)+'</h2>'+
   '<h3 style="font-size:15px;color:var(--accent)">עבודות שבוצעו אצלך</h3>'+(ws.map(w=>'<div class="item" style="margin-bottom:8px"><div class="grow"><div class="t">'+esc(w.title)+'</div><div class="m">'+heDay(w.date)+' · אחריות עד '+heDay(warrantyEnd(w))+'</div><div class="msg">'+esc(w.desc)+'</div>'+(w.photos.length?'<div class="photos" style="margin-top:6px">'+w.photos.map(p=>'<img src="'+p+'" alt="">').join('')+'</div>':'')+'</div></div>').join('')||emptyMsg('עוד אין עבודות בתיק.'))+
-  '<h3 style="font-size:15px;color:var(--accent);margin-top:14px">קבלות ותשלומים</h3><div class="list">'+(js.map(j=>'<div class="item"><div class="grow"><div class="t">'+esc(j.title)+'</div><div class="m">'+heDay(j.date)+'</div></div><b>'+money(j.amount)+'</b><span class="pill '+(j.paid?'ok':'bad')+'">'+(j.paid?'שולם':'ממתין לתשלום')+'</span></div>').join('')||emptyMsg('אין תשלומים להצגה.'))+'</div>'+
-  '<h3 style="font-size:15px;color:var(--accent);margin-top:14px">צריך עבודה חדשה?</h3><label>מה קרה?<textarea id="rq" placeholder="למשל: הפחת קופץ כל פעם שמדליקים את התנור"></textarea></label>'+
-  (SAMPLE_IMG?'<label style="margin-top:8px">תמונה או סרטון של התקלה (תמונה בלבד לסיווג)<input id="rp" type="file" accept="image/*"></label>':'')+
-  '<div class="row" style="margin-top:10px"><button class="b" id="rgo" data-act="reqSend">שלח בקשה להצעת מחיר</button><span class="note" id="rm"></span></div></div>';
+  '<h3 style="font-size:15px;color:var(--accent);margin-top:14px">קבלות ותשלומים</h3><div class="list">'+(js.map(j=>'<div class="item"><div class="grow"><div class="t">'+esc(j.title)+'</div><div class="m">'+heDay(j.date)+'</div></div><b>'+money(j.amount)+'</b><span class="pill '+(j.paid?'ok':'bad')+'">'+(j.paid?'שולם':'ממתין לתשלום')+'</span></div>').join('')||emptyMsg('אין תשלומים להצגה.'))+'</div></div>';
 };
 ACTC.pcust=(d,b)=>{pCust=b.value;render()};
-const URG=['דחוף','בינוני','לא דחוף'];
-ACT.reqSend=async()=>{
-  const text=val('rq'),m=$('rm');if(!text){m.textContent='תאר בקצרה מה קרה.';return}
-  $('rgo').disabled=true;let urgency='בינוני',sum=text;m.textContent='שולח...';
-  if(SAMPLE){
-    let img;const f=$('rp')&&$('rp').files[0];
-    try{if(f)img=(await resizeImg(f,1200)).blob}catch(e){img=undefined}
-    try{
-      const r=await SAMPLE.json('לקוח של בעל מקצוע ('+S.prof.trade+') פנה עם התקלה הזו'+(img?' (מצורפת תמונה)':'')+':\n'+text+'\nסווג דחיפות: "דחוף" אם יש סכנה (ריח שרוף, ניצוצות, מים ליד חשמל, אין חשמל בכלל) , "בינוני" אם הפרעה משמעותית, "לא דחוף" לשיפור או תוספת. החזר JSON בלבד: {"urgency":"דחוף או בינוני או לא דחוף","summary":"משפט אחד לבעל המקצוע"}',{images:img?[img]:undefined,modelTier:'quick'});
-      if(URG.includes(r.urgency))urgency=r.urgency;if(r.summary)sum=String(r.summary);
-    }catch(e){}
-  }
-  S.requests.push({id:uid(),cid:pCust,text:sum,urgency,handled:false,date:today()});save();
-  $('rq').value='';$('rgo').disabled=false;m.textContent='הבקשה נשלחה. סיווג: '+urgency+'. היא תופיע במסך הראשי שלך.';
-};
 
 /* ---------- init ---------- */
 boot();
 </script>
-
-</body></html>
+</body>
+</html>
