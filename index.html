@@ -332,55 +332,150 @@ ACTC.restoreJson=(d,b)=>{
   r.readAsText(f);
 };
 
-/* ---------- calendar ---------- */
-function jobItem(j){
-  return '<div class="item"><div class="grow"><div class="t">'+esc(j.time)+' · '+esc(j.title)+'</div><div class="m">'+esc(cust(j.cid).name)+' · '+esc(cust(j.cid).city)+' · '+money(j.amount)+'</div></div>'+
-  '<span class="pill '+(j.kind==='קריאה'?'warn':'mu')+'">'+esc(j.kind)+'</span>'+
-  (j.status==='done'?'<span class="pill ok">בוצע</span><button class="b sm ghost" data-act="paid" data-id="'+j.id+'">'+(j.paid?'שולם ✓':'סמן כשולם')+'</button>':'<button class="b sm" data-act="done" data-id="'+j.id+'">סיימתי</button>')+
-  '<button class="b sm danger" data-act="delJob" data-id="'+j.id+'" aria-label="מחק">מחק</button></div>';
-}
-VIEWS.calendar=()=>{
-  const t=today(),up=S.jobs.filter(j=>j.status==='planned').sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
-  const days=[...new Set(up.map(j=>j.date))];
-  const past=S.jobs.filter(j=>j.status==='done').sort((a,b)=>b.date.localeCompare(a.date)).slice(0,6);
-  return head('יומן וקריאות שירות','כל העבודות והקריאות במקום אחד')+
-  '<div class="panel"><h2>הוספת עבודה או קריאה</h2><div class="row">'+
-  '<label>לקוח<select id="jc"><option value="">'+(S.customers.length?'בחר לקוח':'אין לקוחות, הקלד חדש')+'</option>'+custOptions()+'</select></label><label>או לקוח חדש<input id="jnew" placeholder="שם הלקוח"></label>'+
-  '<label>תיאור<input id="jt" placeholder="למשל: תקלה בלוח"></label>'+
-  '<label>תאריך<input id="jd" type="date" value="'+t+'"></label>'+
-  '<label>שעה<input id="jh" type="time" value="09:00"></label>'+
-  '<label>סוג<select id="jk"><option>עבודה</option><option>קריאה</option><option>ביקור להצעת מחיר</option></select></label>'+
-  '<label>סכום (₪)<input id="ja" type="number" inputmode="numeric" value="0"></label>'+
-  '<button class="b" data-act="addJob">הוסף ליומן</button></div></div>'+
-  '<div class="panel"><h2>קרוב ביומן</h2>'+(days.length?days.map(d=>'<h3 style="font-size:15px;margin:12px 0 6px;color:var(--accent)">'+heDay(d)+(d===t?' · היום':'')+'</h3><div class="list">'+up.filter(j=>j.date===d).map(jobItem).join('')+'</div>').join(''):emptyMsg('אין עבודות מתוכננות.'))+'</div>'+
-  '<div class="panel"><h2>בוצעו לאחרונה</h2><div class="list">'+past.map(jobItem).join('')+'</div></div>';
-};
-ACT.addJob=()=>{
-  if(!val('jt'))return;
-  let cid=val('jc');
-  if(val('jnew')){cid=uid();S.customers.push({id:cid,name:val('jnew'),phone:'',city:''})}
-  S.jobs.push({id:uid(),cid:cid,title:val('jt'),date:val('jd')||today(),time:val('jh')||'09:00',status:'planned',amount:num('ja'),paid:false,kind:val('jk')});
-  save();refresh();
-};
-ACT.done=d=>{const j=S.jobs.find(x=>x.id===d.id);if(j)j.status='done';save();refresh()};
-ACT.paid=d=>{const j=S.jobs.find(x=>x.id===d.id);if(j)j.paid=!j.paid;save();refresh()};
-ACT.delJob=d=>{S.jobs=S.jobs.filter(x=>x.id!==d.id);save();refresh()};
+/* ---------- calendar & weekly time-block planner ---------- */
+let weekOff = 0;
+let calModal = null; // {date, time, endTime}
 
-/* ---------- weekly schedule ---------- */
-let weekOff=0;
-VIEWS.schedule=()=>{
-  const now=new Date();now.setDate(now.getDate()-now.getDay()+weekOff*7);
-  const start=dstr(now),days=[0,1,2,3,4,5,6].map(i=>addDays(start,i)),t=today();
-  return head('סידור עבודה','תכנון השבוע: העבר עבודה ליום אחר או שנה שעה')+
-  '<div class="row" style="margin-bottom:10px"><button class="b sm" data-act="go" data-v="calendar">הוסף עבודה</button><button class="b ghost sm" data-act="wk" data-n="1">שבוע קודם</button><button class="b ghost sm" data-act="wk" data-n="0">השבוע</button><button class="b ghost sm" data-act="wk" data-n="2">שבוע הבא</button></div>'+
-  '<div class="tablew"><div class="week">'+days.map(d=>'<div class="day'+(d===t?' today':'')+'"><h3>'+heDay(d)+'</h3>'+
-    S.jobs.filter(j=>j.date===d).sort((a,b)=>a.time.localeCompare(b.time)).map(j=>'<div class="card"><input type="time" value="'+j.time+'" data-chg="jtime" data-id="'+j.id+'" aria-label="שעה"><div class="t" style="font-weight:700;margin-top:4px">'+esc(j.title)+'</div><div class="note">'+esc(cust(j.cid).name)+' · '+esc(cust(j.cid).city)+'</div>'+
-    '<div class="row" style="margin-top:6px;gap:6px"><button class="b sm ghost" data-act="mv" data-id="'+j.id+'" data-n="1" aria-label="ליום הקודם">→</button><button class="b sm ghost" data-act="mv" data-id="'+j.id+'" data-n="-1" aria-label="ליום הבא">←</button></div></div>').join('')+'</div>').join('')+'</div></div>'+
-  '<p class="note">חץ ימינה מעביר ליום הקודם, חץ שמאלה ליום הבא.</p>';
+function timeToMins(t) {
+  const [h, m] = (t || '08:00').split(':').map(Number);
+  return h * 60 + (m || 0);
+}
+
+function minsToTime(mins) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return pad(h) + ':' + pad(m);
+}
+
+function jobItem(j) {
+  const endStr = j.endTime ? '–' + esc(j.endTime) : '';
+  return '<div class="item"><div class="grow"><div class="t">' + esc(j.time) + endStr + ' · ' + esc(j.title) + '</div><div class="m">' + esc(cust(j.cid).name) + ' · ' + esc(cust(j.cid).city) + ' · ' + money(j.amount) + '</div></div>' +
+    '<span class="pill ' + (j.kind === 'קריאה' ? 'warn' : 'mu') + '">' + esc(j.kind) + '</span>' +
+    (j.status === 'done' ? '<span class="pill ok">בוצע</span><button class="b sm ghost" data-act="paid" data-id="' + j.id + '">' + (j.paid ? 'שולם ✓' : 'סמן כשולם') + '</button>' : '<button class="b sm" data-act="done" data-id="' + j.id + '">סיימתי</button>') +
+    '<button class="b sm danger" data-act="delJob" data-id="' + j.id + '" aria-label="מחק">מחק</button></div>';
+}
+
+function renderWeeklyGrid() {
+  const now = new Date();
+  now.setDate(now.getDate() - now.getDay() + weekOff * 7);
+  const start = dstr(now);
+  const days = [0, 1, 2, 3, 4, 5, 6].map(i => addDays(start, i));
+  const t = today();
+  const START_H = 7, END_H = 20, ROW_H = 44; // 44px per hour
+  const hours = [];
+  for (let h = START_H; h <= END_H; h++) hours.push(h);
+
+  const monthTitle = heMonth(days[0].slice(0, 7)) + (days[0].slice(0, 7) !== days[6].slice(0, 7) ? ' / ' + heMonth(days[6].slice(0, 7)) : '');
+
+  return '<div class="panel" style="padding:12px">' +
+    '<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px">' +
+      '<div class="row" style="gap:6px">' +
+        '<button class="b sm ghost" data-act="wk" data-n="1">→ שבוע קודם</button>' +
+        '<button class="b sm" data-act="wk" data-n="0">היום</button>' +
+        '<button class="b sm ghost" data-act="wk" data-n="2">שבוע הבא ←</button>' +
+      '</div>' +
+      '<b style="font-size:17px;color:var(--accent)">' + monthTitle + '</b>' +
+      '<label style="flex:0 1 160px;font-size:12px">קפוץ לתאריך<input type="date" value="' + days[0] + '" data-chg="jumpDate" style="padding:6px 8px"></label>' +
+    '</div>' +
+    '<div class="tablew"><div style="display:grid;grid-template-columns:56px repeat(7,minmax(135px,1fr));border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--bg)">' +
+      /* Header Row */
+      '<div style="background:var(--bg2);border-bottom:1px solid var(--line);border-inline-end:1px solid var(--line);padding:8px 4px;text-align:center;font-size:12px;color:var(--muted)">שעה</div>' +
+      days.map(d => '<div style="background:' + (d === t ? 'var(--panel)' : 'var(--bg2)') + ';border-bottom:1px solid var(--line);border-inline-end:1px solid var(--line);padding:8px 6px;text-align:center">' +
+        '<div style="font-size:12px;color:' + (d === t ? 'var(--accent)' : 'var(--muted)') + '">' + new Date(d + 'T12:00:00').toLocaleDateString('he-IL', { weekday: 'short' }) + '</div>' +
+        '<div style="font-weight:800;font-size:16px;color:' + (d === t ? 'var(--accent)' : 'var(--fg)') + '">' + Number(d.slice(8, 10)) + '/' + Number(d.slice(5, 7)) + '</div>' +
+      '</div>').join('') +
+      /* Time Column */
+      '<div style="border-inline-end:1px solid var(--line)">' +
+        hours.map(h => '<div style="height:' + ROW_H + 'px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);padding:4px;text-align:center">' + pad(h) + ':00</div>').join('') +
+      '</div>' +
+      /* 7 Day Columns */
+      days.map(d => {
+        const dayJobs = S.jobs.filter(j => j.date === d);
+        return '<div style="position:relative;border-inline-end:1px solid var(--line);background:' + (d === t ? 'rgba(109,245,225,0.03)' : 'transparent') + '">' +
+          /* Clickable hour slots */
+          hours.map(h => '<div data-act="slotClick" data-d="' + d + '" data-h="' + pad(h) + ':00" title="לחץ להוספת עבודה ב-' + pad(h) + ':00" style="height:' + ROW_H + 'px;border-bottom:1px dashed rgba(27,100,105,0.5);cursor:pointer"></div>').join('') +
+          /* Job Time Blocks */
+          dayJobs.map(j => {
+            const startM = Math.max(START_H * 60, timeToMins(j.time));
+            const endM = j.endTime ? timeToMins(j.endTime) : startM + 120; // ברירת מחדל שעתיים
+            const durM = Math.max(45, Math.min((END_H + 1) * 60 - startM, endM - startM));
+            const topPx = ((startM - START_H * 60) / 60) * ROW_H;
+            const heightPx = (durM / 60) * ROW_H - 2;
+            const bgCol = j.status === 'done' ? 'rgba(95,227,161,0.22)' : (j.kind === 'קריאה' ? 'rgba(255,193,90,0.25)' : 'rgba(109,245,225,0.22)');
+            const bdCol = j.status === 'done' ? 'var(--ok)' : (j.kind === 'קריאה' ? 'var(--warn)' : 'var(--accent)');
+            return '<div style="position:absolute;top:' + topPx + 'px;inset-inline:3px;height:' + heightPx + 'px;background:' + bgCol + ';border-inline-start:4px solid ' + bdCol + ';border-radius:6px;padding:4px 6px;font-size:12px;overflow:hidden;box-shadow:0 2px 4px rgba(0,0,0,0.3)">' +
+              '<div style="font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(j.time) + (j.endTime ? '–' + esc(j.endTime) : '') + ' · ' + esc(j.title) + '</div>' +
+              '<div style="color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(cust(j.cid).name) + ' · ' + money(j.amount) + '</div>' +
+            '</div>';
+          }).join('') +
+        '</div>';
+      }).join('') +
+    '</div></div>' +
+    '<p class="note" style="margin-top:8px">💡 לחץ על כל שעה פנויה ביומן כדי לשבץ עבודה חדשה, או השתמש בחצים כדי לנווט אחורה להיסטוריה וקדימה לעתיד.</p>' +
+  '</div>';
+}
+
+VIEWS.calendar = () => {
+  const defDate = calModal ? calModal.date : today();
+  const defStart = calModal ? calModal.time : '08:00';
+  const defEnd = calModal ? calModal.endTime : '14:00';
+  const past = S.jobs.filter(j => j.status === 'done').sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
+  const up = S.jobs.filter(j => j.status === 'planned').sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+
+  return head('יומן עבודה שבועי', 'תצוגת שעות מלאה (07:00–20:00), היסטוריית ביקורים ותכנון עתידי') +
+    renderWeeklyGrid() +
+    '<div class="panel" id="jobFormPanel"' + (calModal ? ' style="border-color:var(--accent)"' : '') + '><h2>' + (calModal ? 'שיבוץ עבודה ל-' + heDay(defDate) : 'הוספת עבודה / קריאת שירות') + '</h2><div class="row">' +
+      '<label>לקוח<select id="jc"><option value="">' + (S.customers.length ? 'בחר לקוח' : 'הקלד לקוח חדש') + '</option>' + custOptions() + '</select></label>' +
+      '<label>או לקוח חדש<input id="jnew" placeholder="שם הלקוח"></label>' +
+      '<label style="flex:2 1 200px">תיאור העבודה<input id="jt" placeholder="למשל: התקנת עמדת טעינה / לוח חשמל"></label>' +
+      '<label>תאריך<input id="jd" type="date" value="' + defDate + '"></label>' +
+      '<label>משעה<input id="jh" type="time" value="' + defStart + '"></label>' +
+      '<label>עד שעה<input id="jend" type="time" value="' + defEnd + '"></label>' +
+      '<label>סוג<select id="jk"><option>עבודה</option><option>קריאה</option><option>ביקור להצעת מחיר</option></select></label>' +
+      '<label>סכום (₪)<input id="ja" type="number" inputmode="numeric" value="0"></label>' +
+      '<button class="b" data-act="addJob">שבץ ביומן</button>' +
+    '</div></div>' +
+    '<div class="panel"><h2>רשימת עבודות קרובות (ניהול סטטוס ותשלום)</h2><div class="list">' + (up.map(jobItem).join('') || emptyMsg('אין עבודות מתוכננות.')) + '</div></div>' +
+    '<div class="panel"><h2>בוצעו לאחרונה</h2><div class="list">' + (past.map(jobItem).join('') || emptyMsg('עדיין לא סומנו עבודות שבוצעו.')) + '</div></div>';
 };
-ACT.wk=d=>{weekOff=d.n==='0'?0:d.n==='1'?weekOff-1:weekOff+1;refresh()};
-ACT.mv=d=>{const j=S.jobs.find(x=>x.id===d.id);if(j){j.date=addDays(j.date,-Number(d.n));save();refresh()}};
-ACTC.jtime=(d,b)=>{const j=S.jobs.find(x=>x.id===d.id);if(j&&b.value){j.time=b.value;save();refresh()}};
+
+VIEWS.schedule = () => VIEWS.calendar();
+
+ACT.slotClick = d => {
+  const startM = timeToMins(d.h);
+  calModal = { date: d.d, time: d.h, endTime: minsToTime(Math.min(20 * 60, startM + 120)) };
+  refresh();
+  const el = $('jobFormPanel');
+  if (el) el.scrollIntoView({ behavior: 'smooth' });
+};
+
+ACTC.jumpDate = (d, b) => {
+  if (!b.value) return;
+  const target = new Date(b.value + 'T12:00:00');
+  const cur = new Date();
+  cur.setDate(cur.getDate() - cur.getDay());
+  target.setDate(target.getDate() - target.getDay());
+  weekOff = Math.round((target - cur) / (7 * 864e5));
+  refresh();
+};
+
+ACT.addJob = () => {
+  if (!val('jt')) return;
+  let cid = val('jc');
+  if (val('jnew')) { cid = uid(); S.customers.push({ id: cid, name: val('jnew'), phone: '', city: '' }); }
+  const startT = val('jh') || '08:00';
+  const endT = val('jend') || minsToTime(timeToMins(startT) + 120);
+  S.jobs.push({
+    id: uid(), cid: cid, title: val('jt'), date: val('jd') || today(),
+    time: startT, endTime: endT, status: 'planned', amount: num('ja'), paid: false, kind: val('jk')
+  });
+  calModal = null;
+  save(); refresh();
+};
+ACT.done = d => { const j = S.jobs.find(x => x.id === d.id); if (j) j.status = 'done'; save(); refresh(); };
+ACT.paid = d => { const j = S.jobs.find(x => x.id === d.id); if (j) j.paid = !j.paid; save(); refresh(); };
+ACT.delJob = d => { S.jobs = S.jobs.filter(x => x.id !== d.id); save(); refresh(); };
+ACT.wk = d => { weekOff = d.n === '0' ? 0 : d.n === '1' ? weekOff - 1 : weekOff + 1; refresh(); };
 
 /* ---------- notes & reminders ---------- */
 VIEWS.notes=()=>{
